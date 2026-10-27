@@ -71,6 +71,7 @@ header { display: flex; flex-wrap: wrap; gap: 16px 24px; align-items: end; justi
 .seg button { font: inherit; font-size: 13px; font-weight: 600; border: 0; background: transparent; color: var(--muted); padding: 7px 14px; border-radius: 999px; cursor: pointer; }
 .seg button[aria-pressed="true"] { background: var(--card); color: var(--fg); box-shadow: 0 0 0 1px var(--line); }
 .seg button:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 2px solid var(--peri-ink); outline-offset: 2px; }
+.plan-end { width: auto; border-radius: 999px; padding: 7px 12px; background: var(--sunk); border-color: transparent; font-weight: 600; font-size: 13px; }
 .control-label { font-size: 12px; font-weight: 700; color: var(--muted); display: block; margin-bottom: 4px; letter-spacing: 0.04em; text-transform: uppercase; }
 
 /* Tiles */
@@ -208,11 +209,8 @@ footer a { color: var(--peri-ink); }
         <div class="seg" role="group" aria-labelledby="scenLabel" id="scenSeg"></div>
       </div>
       <div>
-        <span class="control-label" id="horLabel">Plan length</span>
-        <div class="seg" role="group" aria-labelledby="horLabel" id="horSeg">
-          <button type="button" data-hor="12">12 months</button>
-          <button type="button" data-hor="18">18 months</button>
-        </div>
+        <label class="control-label" for="planEnd">Plan ends</label>
+        <select id="planEnd" class="plan-end"></select>
       </div>
     </div>
   </header>
@@ -352,7 +350,7 @@ footer a { color: var(--peri-ink); }
     v: 1,
     startBalance: 140675.97,
     startMonth: "2026-11",
-    horizon: 18,
+    endMonth: "2028-01",
     scenario: "expected",
     expenses: [
       { on: true, name: "Wages incl. super + tax", kind: "team", amount: 17169.23, end: "", note: "Per Miks' notes" },
@@ -401,6 +399,8 @@ footer a { color: var(--peri-ink); }
     return s && typeof s === "object" && Array.isArray(s.expenses) && Array.isArray(s.bets) && Array.isArray(s.prospects) && Array.isArray(s.funding) && isFinite(s.startBalance);
   }
   let S = load() || clone(DEFAULTS);
+  function migrate(s) { if (!s.endMonth) s.endMonth = DEFAULTS.endMonth; delete s.horizon; return s; }
+  migrate(S);
 
   // ---------- months ----------
   const MN = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
@@ -408,6 +408,7 @@ footer a { color: var(--peri-ink); }
   const ms = (i) => Math.floor(i / 12) + "-" + String((i % 12) + 1).padStart(2, "0");
   const mLong = (s) => { const i = mi(s); return MN[i % 12] + " " + Math.floor(i / 12); };
   const mShort = (s) => { const i = mi(s); return MN[i % 12] + " " + String(Math.floor(i / 12)).slice(2); };
+  const planLen = () => Math.max(1, mi(S.endMonth) - mi(S.startMonth) + 1);
   const MONTH_OPTS = []; for (let i = mi("2026-10"); i <= mi("2028-12"); i++) MONTH_OPTS.push(ms(i));
   function monthSelect(val, attrs, allowBlank) {
     let h = `<select ${attrs}>`;
@@ -440,7 +441,7 @@ footer a { color: var(--peri-ink); }
     return (num(p.value) / n) * f;
   }
   function compute(scen) {
-    const start = mi(S.startMonth), n = S.horizon;
+    const start = mi(S.startMonth), n = planLen();
     let bal = num(S.startBalance);
     const rows = []; let runOut = null, low = { v: Infinity, m: null };
     for (let k = 0; k < n; k++) {
@@ -463,7 +464,7 @@ footer a { color: var(--peri-ink); }
   const $ = (id) => document.getElementById(id);
   function renderControls() {
     $("scenSeg").innerHTML = SCEN.map((s) => `<button type="button" data-scen="${s.key}" aria-pressed="${S.scenario === s.key}">${s.short}</button>`).join("");
-    for (const b of $("horSeg").querySelectorAll("button")) b.setAttribute("aria-pressed", String(+b.dataset.hor === S.horizon));
+    $("planEnd").innerHTML = MONTH_OPTS.filter((m) => mi(m) >= mi(S.startMonth) + 5).map((m) => `<option value="${m}"${m === S.endMonth ? " selected" : ""}>${mLong(m)}</option>`).join("");
     S.closed = S.closed || {};
     for (const btn of document.querySelectorAll("[data-section]")) {
       const shut = !!S.closed[btn.dataset.section];
@@ -536,7 +537,7 @@ footer a { color: var(--peri-ink); }
 
   // ---------- rendering: outputs ----------
   function renderDerived() {
-    const start = mi(S.startMonth), endI = start + S.horizon - 1;
+    const start = mi(S.startMonth), endI = mi(S.endMonth);
     S.bets.forEach((b, i) => {
       const el = document.querySelector(`[data-derived="bets-${i}"]`); if (!el) return;
       let tot = 0; for (let k = start; k <= endI; k++) if (activeBet({ ...b, on: true }, k)) tot += num(b.delta);
@@ -571,7 +572,7 @@ footer a { color: var(--peri-ink); }
     $("tiles").innerHTML = `
       <div class="tile hero">
         <span class="eyebrow">Cash runs out · ${esc(selDef.short)}</span>
-        <span class="tile-value">${sel.runOut ? mLong(sel.runOut) : "Not within " + S.horizon + " months"}</span>
+        <span class="tile-value">${sel.runOut ? mLong(sel.runOut) : "Lasts past " + mLong(S.endMonth)}</span>
         <div class="scen-list">${scenLines}</div>
       </div>
       <div class="tile">
@@ -627,7 +628,7 @@ footer a { color: var(--peri-ink); }
   }
   function renderChart(R) {
     const svg = $("chart");
-    const n = S.horizon, pw = W - ML - MR, ph = H - MT - MB;
+    const n = planLen(), pw = W - ML - MR, ph = H - MT - MB;
     let lo = 0, hi = num(S.startBalance);
     for (const s of SCEN) for (const r of R[s.key].rows) { lo = Math.min(lo, r.bal); hi = Math.max(hi, r.bal); }
     const step = niceStep(Math.max(1, hi - lo), 5);
@@ -722,6 +723,7 @@ footer a { color: var(--peri-ink); }
   function onEdit(e) {
     const t = e.target;
     if (t.id === "startBalance") { S.startBalance = num(t.value); save(); renderOutputs(); return; }
+    if (t.id === "planEnd") { S.endMonth = t.value; save(); renderOutputs(); return; }
     const list = t.dataset.list; if (!list) return;
     const item = S[list][+t.dataset.idx]; if (!item) return;
     const f = t.dataset.field;
@@ -740,7 +742,6 @@ footer a { color: var(--peri-ink); }
   document.addEventListener("click", (e) => {
     const t = e.target.closest("button"); if (!t) return;
     if (t.dataset.scen) { S.scenario = t.dataset.scen; save(); renderControls(); renderOutputs(); return; }
-    if (t.dataset.hor) { S.horizon = +t.dataset.hor; save(); renderControls(); renderEditors(); renderOutputs(); return; }
     if (t.dataset.toggle) {
       const it = S[t.dataset.toggle][+t.dataset.idx]; if (!it) return;
       it._open = !it._open; save();
@@ -808,7 +809,7 @@ footer a { color: var(--peri-ink); }
   $("applyLoad").addEventListener("click", () => {
     let s; try { s = JSON.parse($("loadText").value); } catch (e) { status("That text isn't a setup from this planner. Copy it again with \"Copy setup\" and paste the whole thing.", false); return; }
     if (!valid(s)) { status("That setup is missing costs, bets, prospects or funding. Copy it again with \"Copy setup\".", false); return; }
-    S = Object.assign(clone(DEFAULTS), s); save(); renderControls(); renderEditors(); renderOutputs();
+    S = migrate(Object.assign(clone(DEFAULTS), s)); save(); renderControls(); renderEditors(); renderOutputs();
     $("loadPanel").hidden = true; $("loadText").value = ""; status("Setup loaded.", true);
   });
   let resetArmed = null;
