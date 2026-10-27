@@ -113,7 +113,16 @@ header { display: flex; flex-wrap: wrap; gap: 16px 24px; align-items: end; justi
 .row.off { background: var(--sunk); }
 .row.off .row-fields, .row.off .row-name { opacity: 0.6; }
 .row-top { display: flex; align-items: center; gap: 10px; }
-.row-name { flex: 1; min-width: 0; font-weight: 700; }
+.row-title { flex: 1; min-width: 0; display: grid; }
+.row-name { min-width: 0; font-weight: 700; }
+.row-sum { font-size: 13px; color: var(--muted); padding-left: 5px; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.row:not(.collapsed) .row-sum { display: none; }
+.row.collapsed { padding-bottom: 12px; }
+.row.collapsed .row-fields, .row.collapsed .row-foot { display: none; }
+.chev span { display: inline-block; transition: transform .15s; font-size: 15px; }
+.row.collapsed .chev span { transform: rotate(-90deg); }
+.link-btn { font: inherit; font-size: 13px; font-weight: 700; color: var(--peri-ink); background: transparent; border: 0; padding: 4px 6px; border-radius: 6px; cursor: pointer; white-space: nowrap; }
+.link-btn:hover { background: var(--peri-soft); }
 .row-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(118px, 1fr)); gap: 8px; }
 .field { display: grid; gap: 2px; min-width: 0; }
 .field > span { font-size: 11px; font-weight: 700; color: var(--muted); letter-spacing: 0.04em; text-transform: uppercase; }
@@ -231,6 +240,7 @@ footer a { color: var(--peri-ink); }
           <h2>Bets and decisions</h2>
           <p>Changes to monthly spend. Use a negative amount for a saving. Set "For" to 0 for an ongoing change.</p>
         </div>
+        <button type="button" class="link-btn" data-collapse-all="bets">Expand all</button>
       </div>
       <div class="rows" id="betsRows"></div>
       <div style="margin-top:10px"><button type="button" class="add-btn" data-add="bets">+ Add a bet</button></div>
@@ -243,7 +253,7 @@ footer a { color: var(--peri-ink); }
             <h2>Revenue prospects</h2>
             <p id="prospectSummary"></p>
           </div>
-          <span class="chip">Placeholder split</span>
+          <div style="display:flex;gap:8px;align-items:center"><span class="chip">Placeholder split</span><button type="button" class="link-btn" data-collapse-all="prospects">Expand all</button></div>
         </div>
         <div class="rows" id="prospectsRows"></div>
         <div style="margin-top:10px"><button type="button" class="add-btn" data-add="prospects">+ Add a prospect</button></div>
@@ -255,6 +265,7 @@ footer a { color: var(--peri-ink); }
             <h2>Funding</h2>
             <p>Grants and other one-off cash. These count in every scenario when switched on.</p>
           </div>
+          <button type="button" class="link-btn" data-collapse-all="funding">Expand all</button>
         </div>
         <div class="rows" id="fundingRows"></div>
         <div style="margin-top:10px"><button type="button" class="add-btn" data-add="funding">+ Add funding</button></div>
@@ -268,11 +279,15 @@ footer a { color: var(--peri-ink); }
         <h2>Monthly costs</h2>
         <p>Current recurring spend. Set an end month for anything that is stopping. Switch a line off to remove it entirely.</p>
       </div>
-      <div class="field" style="min-width:200px">
-        <span>Starting cash (25 Oct 2026)</span>
-        <input type="number" step="0.01" id="startBalance" aria-label="Starting cash">
+      <div style="display:flex;gap:12px;align-items:end;flex-wrap:wrap">
+        <div class="field" style="min-width:200px">
+          <span>Starting cash (25 Oct 2026)</span>
+          <input type="number" step="0.01" id="startBalance" aria-label="Starting cash">
+        </div>
+        <button type="button" class="link-btn" data-section="costs" aria-controls="sec-costs">Hide</button>
       </div>
     </div>
+    <div id="sec-costs">
     <div class="table-scroll">
       <table class="cost-table">
         <thead><tr><th>On</th><th>Item</th><th>Type</th><th class="r">Per month</th><th>Ends after</th><th>Note</th><th><span class="visually-hidden">Remove</span></th></tr></thead>
@@ -281,6 +296,7 @@ footer a { color: var(--peri-ink); }
       </table>
     </div>
     <div style="margin-top:10px"><button type="button" class="add-btn" data-add="expenses">+ Add a cost</button></div>
+    </div>
   </section>
 
   <section class="card">
@@ -289,8 +305,9 @@ footer a { color: var(--peri-ink); }
         <h2>Month by month</h2>
         <p id="tableNote"></p>
       </div>
+      <button type="button" class="link-btn" data-section="months" aria-controls="sec-months">Hide</button>
     </div>
-    <div class="table-scroll">
+    <div class="table-scroll" id="sec-months">
       <table>
         <thead><tr><th>Month</th><th class="r">Team</th><th class="r">Tools</th><th class="r">Bets</th><th class="r">Revenue</th><th class="r">Funding</th><th class="r">Net</th><th class="r">Cash at month end</th></tr></thead>
         <tbody id="monthRows"></tbody>
@@ -447,6 +464,13 @@ footer a { color: var(--peri-ink); }
   function renderControls() {
     $("scenSeg").innerHTML = SCEN.map((s) => `<button type="button" data-scen="${s.key}" aria-pressed="${S.scenario === s.key}">${s.short}</button>`).join("");
     for (const b of $("horSeg").querySelectorAll("button")) b.setAttribute("aria-pressed", String(+b.dataset.hor === S.horizon));
+    S.closed = S.closed || {};
+    for (const btn of document.querySelectorAll("[data-section]")) {
+      const shut = !!S.closed[btn.dataset.section];
+      $("sec-" + btn.dataset.section).hidden = shut;
+      btn.textContent = shut ? "Show" : "Hide";
+      btn.setAttribute("aria-expanded", String(!shut));
+    }
     $("legend").innerHTML = SCEN.map((s) => `<button type="button" data-scen="${s.key}" aria-pressed="${S.scenario === s.key}"><span class="swatch" style="background:var(${s.color})"></span>${s.label}</button>`).join("");
   }
 
@@ -454,14 +478,20 @@ footer a { color: var(--peri-ink); }
   function sw(list, i, on, label) {
     return `<span class="switch"><input type="checkbox" data-list="${list}" data-idx="${i}" data-field="on" ${on ? "checked" : ""} aria-label="Include ${esc(label)}"><span class="track"></span></span>`;
   }
+  function head(list, i, it, ariaName, withSwitch) {
+    return `<div class="row-top">${withSwitch ? sw(list, i, it.on, it.name) : ""}
+      <div class="row-title"><div class="row-name"><input type="text" value="${esc(it.name)}" data-list="${list}" data-idx="${i}" data-field="name" aria-label="${ariaName}"></div><span class="row-sum" data-sum="${list}-${i}"></span></div>
+      <button type="button" class="icon-btn chev" data-toggle="${list}" data-idx="${i}" aria-expanded="${!!it._open}" aria-label="Show or hide details for ${esc(it.name)}"><span aria-hidden="true">▾</span></button>
+      <button type="button" class="icon-btn" data-remove="${list}" data-idx="${i}" aria-label="Remove ${esc(it.name)}">×</button></div>`;
+  }
+  const rowCls = (it, sw) => "row" + (sw && !it.on ? " off" : "") + (it._open ? "" : " collapsed");
+
   function renderEditors() {
     $("startBalance").value = S.startBalance;
 
     $("betsRows").innerHTML = S.bets.map((b, i) => `
-      <div class="row${b.on ? "" : " off"}" data-row="bets-${i}">
-        <div class="row-top">${sw("bets", i, b.on, b.name)}
-          <div class="row-name"><input type="text" value="${esc(b.name)}" data-list="bets" data-idx="${i}" data-field="name" aria-label="Bet name"></div>
-          <button type="button" class="icon-btn" data-remove="bets" data-idx="${i}" aria-label="Remove ${esc(b.name)}">×</button></div>
+      <div class="${rowCls(b, true)}" data-row="bets-${i}">
+        ${head("bets", i, b, "Bet name", true)}
         <div class="row-fields">
           <label class="field"><span>$ per month</span><input type="number" step="1" value="${b.delta}" data-list="bets" data-idx="${i}" data-field="delta" data-type="num"></label>
           <label class="field"><span>Starts</span>${monthSelect(b.start, `data-list="bets" data-idx="${i}" data-field="start"`)}</label>
@@ -471,9 +501,8 @@ footer a { color: var(--peri-ink); }
       </div>`).join("");
 
     $("prospectsRows").innerHTML = S.prospects.map((p, i) => `
-      <div class="row" data-row="prospects-${i}">
-        <div class="row-top"><div class="row-name"><input type="text" value="${esc(p.name)}" data-list="prospects" data-idx="${i}" data-field="name" aria-label="Prospect name"></div>
-          <button type="button" class="icon-btn" data-remove="prospects" data-idx="${i}" aria-label="Remove ${esc(p.name)}">×</button></div>
+      <div class="${rowCls(p, false)}" data-row="prospects-${i}">
+        ${head("prospects", i, p, "Prospect name", false)}
         <div class="row-fields">
           <label class="field"><span>Contract value</span><input type="number" step="500" min="0" value="${p.value}" data-list="prospects" data-idx="${i}" data-field="value" data-type="num"></label>
           <label class="field"><span>Likelihood %</span><input type="number" step="5" min="0" max="100" value="${p.likelihood}" data-list="prospects" data-idx="${i}" data-field="likelihood" data-type="num"></label>
@@ -484,10 +513,8 @@ footer a { color: var(--peri-ink); }
       </div>`).join("");
 
     $("fundingRows").innerHTML = S.funding.map((f, i) => `
-      <div class="row${f.on ? "" : " off"}" data-row="funding-${i}">
-        <div class="row-top">${sw("funding", i, f.on, f.name)}
-          <div class="row-name"><input type="text" value="${esc(f.name)}" data-list="funding" data-idx="${i}" data-field="name" aria-label="Funding name"></div>
-          <button type="button" class="icon-btn" data-remove="funding" data-idx="${i}" aria-label="Remove ${esc(f.name)}">×</button></div>
+      <div class="${rowCls(f, true)}" data-row="funding-${i}">
+        ${head("funding", i, f, "Funding name", true)}
         <div class="row-fields">
           <label class="field"><span>Amount</span><input type="number" step="1000" min="0" value="${f.amount}" data-list="funding" data-idx="${i}" data-field="amount" data-type="num"></label>
           <label class="field"><span>Lands in</span>${monthSelect(f.month, `data-list="funding" data-idx="${i}" data-field="month"`)}</label>
@@ -521,6 +548,11 @@ footer a { color: var(--peri-ink); }
       el.textContent = money(num(p.value) * Math.min(100, Math.max(0, num(p.likelihood))) / 100);
     });
     S.funding.forEach((f, i) => { const row = document.querySelector(`[data-row="funding-${i}"]`); if (row) row.classList.toggle("off", !f.on); });
+    const setSum = (key, text) => { const el = document.querySelector(`[data-sum="${key}"]`); if (el) el.textContent = text; };
+    S.bets.forEach((b, i) => setSum(`bets-${i}`, `${signed(num(b.delta))}/mo · from ${mShort(b.start)} · ${num(b.months) ? num(b.months) + " mo" : "ongoing"}`));
+    S.prospects.forEach((p, i) => setSum(`prospects-${i}`, `${money(num(p.value))} · ${num(p.likelihood)}% · from ${mShort(p.start)}`));
+    S.funding.forEach((f, i) => setSum(`funding-${i}`, `${money(num(f.amount))} · ${mLong(f.month)}`));
+    for (const btn of document.querySelectorAll("[data-collapse-all]")) btn.textContent = S[btn.dataset.collapseAll].some((it) => it._open) ? "Collapse all" : "Expand all";
     const totVal = S.prospects.reduce((a, p) => a + num(p.value), 0);
     const totExp = S.prospects.reduce((a, p) => a + num(p.value) * Math.min(100, Math.max(0, num(p.likelihood))) / 100, 0);
     $("prospectSummary").textContent = `${S.prospects.length} prospect${S.prospects.length === 1 ? "" : "s"} worth ${money(totVal)} if all close, ${money(totExp)} weighted by likelihood. Rename them and set real values and timing.`;
@@ -700,16 +732,35 @@ footer a { color: var(--peri-ink); }
   document.addEventListener("change", onEdit);
 
   const BLANK = {
-    bets: () => ({ on: true, name: "New bet", delta: 0, start: S.startMonth, months: 0, note: "" }),
-    prospects: () => ({ name: "New prospect", value: 10000, likelihood: 50, start: S.startMonth, months: 1 }),
-    funding: () => ({ on: true, name: "New funding", amount: 0, month: S.startMonth, note: "" }),
+    bets: () => ({ on: true, name: "New bet", delta: 0, start: S.startMonth, months: 0, note: "", _open: true }),
+    prospects: () => ({ name: "New prospect", value: 10000, likelihood: 50, start: S.startMonth, months: 1, _open: true }),
+    funding: () => ({ on: true, name: "New funding", amount: 0, month: S.startMonth, note: "", _open: true }),
     expenses: () => ({ on: true, name: "New cost", kind: "tools", amount: 0, end: "", note: "" })
   };
   document.addEventListener("click", (e) => {
     const t = e.target.closest("button"); if (!t) return;
     if (t.dataset.scen) { S.scenario = t.dataset.scen; save(); renderControls(); renderOutputs(); return; }
     if (t.dataset.hor) { S.horizon = +t.dataset.hor; save(); renderControls(); renderEditors(); renderOutputs(); return; }
-    if (t.dataset.add) { S[t.dataset.add].push(BLANK[t.dataset.add]()); save(); renderEditors(); renderOutputs(); return; }
+    if (t.dataset.toggle) {
+      const it = S[t.dataset.toggle][+t.dataset.idx]; if (!it) return;
+      it._open = !it._open; save();
+      const row = document.querySelector(`[data-row="${t.dataset.toggle}-${t.dataset.idx}"]`);
+      if (row) row.classList.toggle("collapsed", !it._open);
+      t.setAttribute("aria-expanded", String(!!it._open));
+      renderDerived(); return;
+    }
+    if (t.dataset.collapseAll) {
+      const list = S[t.dataset.collapseAll], open = !list.some((it) => it._open);
+      list.forEach((it) => { it._open = open; }); save(); renderEditors(); renderDerived(); return;
+    }
+    if (t.dataset.section) { S.closed = S.closed || {}; S.closed[t.dataset.section] = !S.closed[t.dataset.section]; save(); renderControls(); return; }
+    if (t.dataset.add) {
+      const list = t.dataset.add; S[list].push(BLANK[list]()); save(); renderEditors(); renderOutputs();
+      const idx = S[list].length - 1;
+      const inp = document.querySelector(`[data-list="${list}"][data-idx="${idx}"][data-field="name"]`);
+      if (inp) { inp.focus(); inp.select(); }
+      return;
+    }
     if (t.dataset.remove) { S[t.dataset.remove].splice(+t.dataset.idx, 1); save(); renderEditors(); renderOutputs(); return; }
   });
 
