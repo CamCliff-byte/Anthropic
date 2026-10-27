@@ -99,9 +99,10 @@ header { display: flex; flex-wrap: wrap; gap: 16px 24px; align-items: end; justi
 .legend button[aria-pressed="true"] { background: var(--sunk); border-color: var(--fg); }
 .swatch { width: 18px; height: 3px; border-radius: 2px; display: inline-block; }
 .chart-box { position: relative; }
-#chart { width: 100%; height: auto; display: block; overflow: visible; }
-#chart text { fill: var(--muted); font-family: var(--font); font-size: 12px; }
-#chart .end-label { font-weight: 700; fill: var(--fg); }
+.chart { width: 100%; height: auto; display: block; overflow: visible; }
+.chart text { fill: var(--muted); font-family: var(--font); font-size: 12px; }
+.chart .end-label { font-weight: 700; fill: var(--fg); }
+.chart .marker-label { fill: var(--peri-ink); font-weight: 700; font-size: 11px; }
 .tip { position: absolute; pointer-events: none; background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; font-size: 13px; min-width: 190px; box-shadow: 0 6px 24px #0000001f; display: grid; gap: 3px; z-index: 2; }
 .tip-row { display: flex; justify-content: space-between; gap: 14px; align-items: center; }
 .tip-row span:first-child { display: inline-flex; gap: 6px; align-items: center; }
@@ -178,6 +179,18 @@ tfoot td { font-weight: 800; background: var(--sunk); }
 .status { font-size: 13px; font-weight: 600; min-height: 1.4em; }
 .status.ok { color: var(--good); }
 .status.err { color: var(--alert); }
+.tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); overflow-x: auto; }
+.tab { font: inherit; font-size: 15px; font-weight: 700; padding: 10px 16px; border: 0; border-bottom: 3px solid transparent; margin-bottom: -1px; background: transparent; color: var(--muted); cursor: pointer; white-space: nowrap; }
+.tab:hover { color: var(--fg); }
+.tab[aria-selected="true"] { color: var(--fg); border-bottom-color: var(--lime-hover); }
+.panel { display: grid; gap: 20px; min-width: 0; }
+.settings { display: flex; flex-wrap: wrap; gap: 12px; align-items: end; }
+.settings .field { min-width: 170px; }
+.chip.good { background: var(--good-bg); color: var(--good); }
+.chip.alert { background: var(--alert-bg); color: var(--alert); }
+.warn-text { color: var(--warn); font-weight: 700; }
+.check { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; padding-top: 18px; }
+.check input { width: 16px; height: 16px; accent-color: var(--lime-hover); margin: 0; }
 .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 footer { font-size: 13px; color: var(--muted); display: grid; gap: 6px; max-width: 80ch; }
 footer a { color: var(--peri-ink); }
@@ -190,7 +203,7 @@ footer a { color: var(--peri-ink); }
   .tiles { grid-template-columns: minmax(0, 1fr); }
   .tile-value { font-size: 24px; }
   .chart-box { overflow-x: auto; }
-  #chart { min-width: 620px; }
+  .chart { min-width: 620px; }
   .card { padding: 16px 14px; }
 }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
@@ -203,7 +216,7 @@ footer a { color: var(--peri-ink); }
       <h1>Runway planner</h1>
       <p class="header-meta" id="headerMeta">Starting from Miks' October numbers. Change any figure, switch bets on and off, and compare revenue scenarios. Your edits save in this browser only.</p>
     </div>
-    <div class="controls">
+    <div class="controls" id="runwayControls">
       <div>
         <span class="control-label" id="scenLabel">Scenario</span>
         <div class="seg" role="group" aria-labelledby="scenLabel" id="scenSeg"></div>
@@ -215,6 +228,12 @@ footer a { color: var(--peri-ink); }
     </div>
   </header>
 
+  <nav class="tabs" role="tablist" aria-label="Planner views">
+    <button type="button" class="tab" role="tab" id="tabbtn-runway" data-tab="runway" aria-controls="tab-runway">Runway</button>
+    <button type="button" class="tab" role="tab" id="tabbtn-projections" data-tab="projections" aria-controls="tab-projections">Projections</button>
+  </nav>
+
+  <div class="panel" id="tab-runway" role="tabpanel" aria-labelledby="tabbtn-runway">
   <section class="tiles" id="tiles" aria-live="polite"></section>
 
   <section class="card">
@@ -226,7 +245,7 @@ footer a { color: var(--peri-ink); }
       <div class="legend" id="legend"></div>
     </div>
     <div class="chart-box" id="chartBox">
-      <svg id="chart" viewBox="0 0 820 320" role="img" aria-labelledby="chartDesc"><desc id="chartDesc">Line chart of month-end cash balance under three revenue scenarios.</desc></svg>
+      <svg id="chart" class="chart" viewBox="0 0 820 320" role="img" aria-labelledby="chartDesc"><desc id="chartDesc">Line chart of month-end cash balance under three revenue scenarios.</desc></svg>
       <div class="tip" id="tip" hidden></div>
     </div>
   </section>
@@ -312,6 +331,113 @@ footer a { color: var(--peri-ink); }
       </table>
     </div>
   </section>
+  </div>
+
+  <div class="panel" id="tab-projections" role="tabpanel" aria-labelledby="tabbtn-projections" hidden>
+    <section class="card">
+      <div class="card-head" style="margin-bottom:0">
+        <div>
+          <h2>24-month projection</h2>
+          <p>Set revenue targets and the expansions they unlock. This starts from the Runway tab: the same starting cash, costs, bets switched on and funding switched on.</p>
+        </div>
+        <div class="settings">
+          <label class="field"><span>Runway prospects</span>
+            <select id="projProspects"><option value="none">Not counted</option><option value="expected">Expected (weighted)</option><option value="best">All close</option></select>
+          </label>
+          <label class="field" style="min-width:110px"><span>Super rate %</span><input type="number" id="superRate" step="0.5" min="0"></label>
+        </div>
+      </div>
+    </section>
+
+    <section class="tiles" id="projTiles" aria-live="polite"></section>
+
+    <section class="card">
+      <div class="card-head">
+        <div>
+          <h2>Cash with projections</h2>
+          <p>Month-end cash with your revenue streams and expansions, against the same plan without them. Dotted lines mark when an expansion starts.</p>
+        </div>
+        <div class="legend"><span class="small" style="display:inline-flex;gap:8px;align-items:center"><span class="swatch" style="background:var(--s-expected)"></span>With projections</span><span class="small" style="display:inline-flex;gap:8px;align-items:center"><span class="swatch" style="background:var(--muted)"></span>Without projections</span></div>
+      </div>
+      <div class="chart-box" id="projChartBox">
+        <svg id="projChart" class="chart" viewBox="0 0 820 320" role="img" aria-label="Line chart of month-end cash with and without projections over 24 months."></svg>
+        <div class="tip" id="projTip" hidden></div>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="card-head">
+        <div>
+          <h2>Monthly revenue and spend</h2>
+          <p>Cash received each month against total spend, including expansions. Annually billed deals count in the month they sign or renew.</p>
+        </div>
+        <div class="legend"><span class="small" style="display:inline-flex;gap:8px;align-items:center"><span class="swatch" style="background:var(--s-best)"></span>Revenue</span><span class="small" style="display:inline-flex;gap:8px;align-items:center"><span class="swatch" style="background:var(--s-none)"></span>Spend</span></div>
+      </div>
+      <div class="chart-box" id="flowChartBox">
+        <svg id="flowChart" class="chart" viewBox="0 0 820 320" role="img" aria-label="Line chart of monthly revenue and spend over 24 months."></svg>
+        <div class="tip" id="flowTip" hidden></div>
+      </div>
+    </section>
+
+    <section class="grid2">
+      <div class="card">
+        <div class="card-head">
+          <div>
+            <h2>Revenue streams</h2>
+            <p>Recurring deals build ARR from ACV × new deals per quarter. One-off deals pay once when signed.</p>
+          </div>
+          <div style="display:flex;gap:8px;align-items:center"><span class="chip">Example figures</span><button type="button" class="link-btn" data-collapse-all="proj.streams">Expand all</button></div>
+        </div>
+        <div class="rows" id="streamRows"></div>
+        <div style="margin-top:10px;display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          <button type="button" class="add-btn" data-add="proj.streams" data-kind="arr">+ Recurring stream</button>
+          <button type="button" class="add-btn" data-add="proj.streams" data-kind="oneoff">+ One-off stream</button>
+        </div>
+      </div>
+
+      <div class="stack">
+        <div class="card">
+          <div class="card-head">
+            <div>
+              <h2>Expansions</h2>
+              <p>Hires, pay rises and big costs. Each starts in its earliest month, or later once a revenue trigger is met, and then stays on.</p>
+            </div>
+            <button type="button" class="link-btn" data-collapse-all="proj.expansions">Expand all</button>
+          </div>
+          <div class="rows" id="expansionRows"></div>
+          <div style="margin-top:10px"><button type="button" class="add-btn" data-add="proj.expansions">+ Add an expansion</button></div>
+        </div>
+
+        <div class="card">
+          <div class="card-head">
+            <div>
+              <h2>Targets</h2>
+              <p>Milestones to check the projection against.</p>
+            </div>
+            <button type="button" class="link-btn" data-collapse-all="proj.targets">Expand all</button>
+          </div>
+          <div class="rows" id="targetRows"></div>
+          <div style="margin-top:10px"><button type="button" class="add-btn" data-add="proj.targets">+ Add a target</button></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="card-head">
+        <div>
+          <h2>Projection month by month</h2>
+          <p>Other income is runway prospects plus funding. Base spend is the Runway tab's costs and bets.</p>
+        </div>
+        <button type="button" class="link-btn" data-section="projMonths" aria-controls="sec-projMonths">Hide</button>
+      </div>
+      <div class="table-scroll" id="sec-projMonths">
+        <table>
+          <thead><tr><th>Month</th><th class="r">Subscriptions</th><th class="r">One-off</th><th class="r">Other income</th><th class="r">Base spend</th><th class="r">Expansions</th><th class="r">Net</th><th class="r">Cash</th><th class="r">ARR</th></tr></thead>
+          <tbody id="projRows"></tbody>
+        </table>
+      </div>
+    </section>
+  </div>
 
   <section class="card">
     <div class="card-head">
@@ -337,6 +463,7 @@ footer a { color: var(--peri-ink); }
 
   <footer>
     <p><strong>How the numbers work.</strong> Starting cash is the 25 Oct 2026 bank balance, and the plan starts in November, so October's costs are treated as already paid. Revenue and funding are counted in full in the month they land, with no GST or tax adjustments. "Expected" multiplies each prospect by its likelihood.</p>
+    <p><strong>Projections.</strong> New deals are spread evenly across each quarter. Recurring deals renew on each 12-month anniversary at the renewal rate. A pay rise counts only the increase over the current salary. Super is added at the rate set; payroll tax and workers' compensation aren't included. ARR means annual recurring revenue; ACV means annual contract value.</p>
     <p><strong>Sources.</strong> Costs, wages, balance and the Snow $200K come from Miks' notes. Funding notes come from Notion (Snow Foundation CRM record, 18 Aug Snow meeting, 19 Oct director catch-up). Supabase and Notion price notes are from public pricing guides. Check them before relying on them.</p>
   </footer>
 </div>
@@ -351,6 +478,7 @@ footer a { color: var(--peri-ink); }
     startBalance: 140675.97,
     startMonth: "2026-11",
     endMonth: "2028-01",
+    tab: "runway",
     scenario: "expected",
     expenses: [
       { on: true, name: "Wages incl. super + tax", kind: "team", amount: 17169.23, end: "", note: "Per Miks' notes" },
@@ -381,7 +509,24 @@ footer a { color: var(--peri-ink); }
       { on: true, name: "Snow Foundation second grant", amount: 200000, month: "2026-11", note: "FY27 agreement received 29 Sep. Landing month assumed; check if paid in instalments" },
       { on: false, name: "QLD Ignite grant (second half)", amount: 50000, month: "2027-01", note: "Half of up to $100K received; rest subject to acquittal by end of year" },
       { on: false, name: "SEDI capacity grant", amount: 120000, month: "2027-03", note: "Up to $120K, not yet applied for. Mostly third-party costs, so it may not extend runway much" }
-    ]
+    ],
+    proj: {
+      prospects: "expected",
+      superRate: 12,
+      streams: [
+        { on: true, type: "arr", name: "CapyBenchmark subscriptions", acv: 5500, y1: 3, y2: 6, start: "2027-01", billing: "annual", renewal: 85 },
+        { on: true, type: "oneoff", name: "One-off projects and workshops", value: 15000, y1: 1, y2: 2, start: "2027-01" }
+      ],
+      expansions: [
+        { on: true, kind: "hire", name: "Hire Miks at $150K", annual: 150000, current: null, superOn: true, earliest: "2028-01", metric: "none", threshold: 0, note: "Miks is unpaid now, so the full salary is new cost" },
+        { on: true, kind: "raise", name: "Cam to $150K", annual: 150000, current: null, superOn: true, earliest: "2028-01", metric: "none", threshold: 0, note: "Enter Cam's current salary so only the increase counts" },
+        { on: false, kind: "hire", name: "Example: sales hire at $150K ARR", annual: 110000, current: null, superOn: true, earliest: "2027-07", metric: "arr", threshold: 150000, note: "Example of a revenue trigger. Set your own" }
+      ],
+      targets: [
+        { name: "ARR target", metric: "arr", amount: 100000, by: "2028-01" },
+        { name: "Revenue target", metric: "ttm", amount: 250000, by: "2028-10" }
+      ]
+    }
   };
 
   const SCEN = [
@@ -399,7 +544,7 @@ footer a { color: var(--peri-ink); }
     return s && typeof s === "object" && Array.isArray(s.expenses) && Array.isArray(s.bets) && Array.isArray(s.prospects) && Array.isArray(s.funding) && isFinite(s.startBalance);
   }
   let S = load() || clone(DEFAULTS);
-  function migrate(s) { if (!s.endMonth) s.endMonth = DEFAULTS.endMonth; delete s.horizon; return s; }
+  function migrate(s) { if (!s.endMonth) s.endMonth = DEFAULTS.endMonth; delete s.horizon; if (!s.proj || !Array.isArray(s.proj.streams)) s.proj = clone(DEFAULTS.proj); if (!s.tab) s.tab = "runway"; return s; }
   migrate(S);
 
   // ---------- months ----------
@@ -408,6 +553,7 @@ footer a { color: var(--peri-ink); }
   const ms = (i) => Math.floor(i / 12) + "-" + String((i % 12) + 1).padStart(2, "0");
   const mLong = (s) => { const i = mi(s); return MN[i % 12] + " " + Math.floor(i / 12); };
   const mShort = (s) => { const i = mi(s); return MN[i % 12] + " " + String(Math.floor(i / 12)).slice(2); };
+  const L = (name) => (String(name).startsWith("proj.") ? S.proj[name.slice(5)] : S[name]);
   const planLen = () => Math.max(1, mi(S.endMonth) - mi(S.startMonth) + 1);
   const MONTH_OPTS = []; for (let i = mi("2026-10"); i <= mi("2028-12"); i++) MONTH_OPTS.push(ms(i));
   function monthSelect(val, attrs, allowBlank) {
@@ -440,8 +586,8 @@ footer a { color: var(--peri-ink); }
     const f = scen === "best" ? 1 : Math.min(100, Math.max(0, num(p.likelihood))) / 100;
     return (num(p.value) / n) * f;
   }
-  function compute(scen) {
-    const start = mi(S.startMonth), n = planLen();
+  function compute(scen, len) {
+    const start = mi(S.startMonth), n = len || planLen();
     let bal = num(S.startBalance);
     const rows = []; let runOut = null, low = { v: Infinity, m: null };
     for (let k = 0; k < n; k++) {
@@ -465,6 +611,11 @@ footer a { color: var(--peri-ink); }
   function renderControls() {
     $("scenSeg").innerHTML = SCEN.map((s) => `<button type="button" data-scen="${s.key}" aria-pressed="${S.scenario === s.key}">${s.short}</button>`).join("");
     $("planEnd").innerHTML = MONTH_OPTS.filter((m) => mi(m) >= mi(S.startMonth) + 5).map((m) => `<option value="${m}"${m === S.endMonth ? " selected" : ""}>${mLong(m)}</option>`).join("");
+    const tab = S.tab === "projections" ? "projections" : "runway";
+    for (const b of document.querySelectorAll("[data-tab]")) b.setAttribute("aria-selected", String(b.dataset.tab === tab));
+    $("tab-runway").hidden = tab !== "runway";
+    $("tab-projections").hidden = tab !== "projections";
+    $("runwayControls").hidden = tab !== "runway";
     S.closed = S.closed || {};
     for (const btn of document.querySelectorAll("[data-section]")) {
       const shut = !!S.closed[btn.dataset.section];
@@ -533,6 +684,223 @@ footer a { color: var(--peri-ink); }
         <td class="note"><input type="text" value="${esc(e.note || "")}" placeholder="Add a note" data-list="expenses" data-idx="${i}" data-field="note" aria-label="Note"></td>
         <td><button type="button" class="icon-btn" data-remove="expenses" data-idx="${i}" aria-label="Remove ${esc(e.name)}">×</button></td>
       </tr>`).join("");
+    renderProjEditors();
+  }
+
+  // ---------- rendering: projection editors ----------
+  function renderProjEditors() {
+    const P = S.proj, st = mi(S.startMonth);
+    $("projProspects").value = P.prospects;
+    $("superRate").value = P.superRate;
+    const y1L = "to " + mShort(ms(st + 11)), y2L = "from " + mShort(ms(st + 12));
+    const LS = "proj.streams", LE = "proj.expansions", LT = "proj.targets";
+    const numF = (list, i, it, field, label, attrs, type) => `<label class="field"><span>${label}</span><input type="number" ${attrs || ""} value="${it[field] == null ? "" : esc(it[field])}" data-list="${list}" data-idx="${i}" data-field="${field}" data-type="${type || "num"}"></label>`;
+    const monF = (list, i, it, field, label) => `<label class="field"><span>${label}</span>${monthSelect(it[field], `data-list="${list}" data-idx="${i}" data-field="${field}"`)}</label>`;
+    const selF = (list, i, it, field, label, opts) => `<label class="field"><span>${label}</span><select data-list="${list}" data-idx="${i}" data-field="${field}">${opts.map(([v, t]) => `<option value="${v}"${it[field] === v ? " selected" : ""}>${t}</option>`).join("")}</select></label>`;
+
+    $("streamRows").innerHTML = P.streams.map((s, i) => {
+      const fields = s.type === "arr"
+        ? numF(LS, i, s, "acv", "ACV ($/year)", 'step="500" min="0"') + numF(LS, i, s, "y1", "New deals/qtr " + y1L, 'step="0.5" min="0"') + numF(LS, i, s, "y2", "New deals/qtr " + y2L, 'step="0.5" min="0"') +
+          monF(LS, i, s, "start", "First deals") + selF(LS, i, s, "billing", "Billing", [["annual", "Annual upfront"], ["monthly", "Monthly"]]) + numF(LS, i, s, "renewal", "Renewal %", 'step="5" min="0" max="100"')
+        : numF(LS, i, s, "value", "Deal value", 'step="500" min="0"') + numF(LS, i, s, "y1", "Deals/qtr " + y1L, 'step="0.5" min="0"') + numF(LS, i, s, "y2", "Deals/qtr " + y2L, 'step="0.5" min="0"') +
+          monF(LS, i, s, "start", "First deals");
+      return `<div class="${rowCls(s, true)}" data-row="${LS}-${i}">${head(LS, i, s, "Stream name", true)}
+        <div class="row-fields">${fields}</div>
+        <div class="row-foot"><span class="chip${s.type === "arr" ? " peri" : ""}">${s.type === "arr" ? "Recurring" : "One-off"}</span><span class="derived" data-derived="${LS}-${i}"></span></div></div>`;
+    }).join("");
+
+    $("expansionRows").innerHTML = P.expansions.map((e, i) => {
+      const fields = selF(LE, i, e, "kind", "Type", [["hire", "New hire"], ["raise", "Pay rise"], ["cost", "Other cost"]]) +
+        numF(LE, i, e, "annual", e.kind === "raise" ? "New salary ($/yr)" : e.kind === "cost" ? "Cost ($/yr)" : "Salary ($/yr)", 'step="1000" min="0"') +
+        (e.kind === "raise" ? numF(LE, i, e, "current", "Current salary ($/yr)", 'step="1000" min="0" placeholder="Enter amount"', "numOrBlank") : "") +
+        monF(LE, i, e, "earliest", "Earliest start") +
+        selF(LE, i, e, "metric", "Revenue trigger", [["none", "None (start on date)"], ["arr", "When ARR reaches"], ["ttm", "When 12-month revenue reaches"]]) +
+        (e.metric !== "none" ? numF(LE, i, e, "threshold", "Trigger amount", 'step="10000" min="0"') : "") +
+        `<label class="check"><input type="checkbox" data-list="${LE}" data-idx="${i}" data-field="superOn"${e.superOn ? " checked" : ""}> Add super</label>`;
+      return `<div class="${rowCls(e, true)}" data-row="${LE}-${i}">${head(LE, i, e, "Expansion name", true)}
+        <div class="row-fields">${fields}</div>
+        <div class="row-foot"><input type="text" value="${esc(e.note || "")}" placeholder="Add a note" data-list="${LE}" data-idx="${i}" data-field="note" aria-label="Note"><span class="derived" data-derived="${LE}-${i}"></span></div>
+        <div class="row-foot" data-warn="${LE}-${i}" hidden></div></div>`;
+    }).join("");
+
+    $("targetRows").innerHTML = P.targets.map((t, i) => `<div class="${rowCls(t, false)}" data-row="${LT}-${i}">${head(LT, i, t, "Target name", false)}
+        <div class="row-fields">${selF(LT, i, t, "metric", "Measure", [["arr", "ARR"], ["ttm", "Revenue, last 12 months"]])}${numF(LT, i, t, "amount", "Amount", 'step="10000" min="0"')}${monF(LT, i, t, "by", "By")}</div>
+        <div class="row-foot"><span>Status</span><span data-derived="${LT}-${i}"></span></div></div>`).join("");
+  }
+
+  // ---------- projection model ----------
+  const PROJ_N = 24;
+  const pct = (v) => Math.min(100, Math.max(0, num(v)));
+  function expMonthly(e) {
+    const cur = e.kind === "raise" && e.current != null ? num(e.current) : 0;
+    const sup = e.superOn ? num(S.proj.superRate) / 100 : 0;
+    return Math.max(0, num(e.annual) - cur) * (1 + sup) / 12;
+  }
+  function computeProjection() {
+    const P = S.proj, n = PROJ_N, start = mi(S.startMonth);
+    const base = compute(P.prospects, n);
+    const cohorts = P.streams.map(() => []), stats = P.streams.map(() => ({ arr: 0, cash: 0 }));
+    const fired = P.expansions.map(() => null);
+    const rows = [], revHist = [], spendHist = [];
+    let bal = num(S.startBalance), runOut = null, low = { v: Infinity, m: null }, covered = null;
+    for (let k = 0; k < n; k++) {
+      const i = start + k, yr = k < 12 ? "y1" : "y2", b = base.rows[k];
+      let subs = 0, oneoff = 0, arr = 0, customers = 0;
+      P.streams.forEach((s, si) => {
+        if (!s.on) return;
+        const perMonth = i >= mi(s.start) ? Math.max(0, num(s[yr])) / 3 : 0;
+        if (s.type === "arr") {
+          const c = cohorts[si]; c[k] = perMonth;
+          const r = pct(s.renewal) / 100, acv = num(s.acv);
+          let sArr = 0, sCash = 0;
+          for (let j = 0; j <= k; j++) {
+            if (!c[j]) continue;
+            const age = k - j, alive = c[j] * Math.pow(r, Math.floor(age / 12));
+            sArr += alive * acv; customers += alive;
+            if (s.billing === "annual" && age % 12 === 0) sCash += alive * acv;
+          }
+          if (s.billing !== "annual") sCash = sArr / 12;
+          subs += sCash; arr += sArr; stats[si].arr = sArr; stats[si].cash += sCash;
+        } else {
+          const v = perMonth * num(s.value); oneoff += v; stats[si].cash += v;
+        }
+      });
+      const rev = subs + oneoff + b.rev;
+      revHist.push(rev);
+      const ttm = revHist.slice(-12).reduce((a, v) => a + v, 0);
+      let exp = 0; const startedNow = [];
+      P.expansions.forEach((e, ei) => {
+        if (!e.on) return;
+        if (fired[ei] === null && i >= mi(e.earliest)) {
+          const th = num(e.threshold);
+          const ok = e.metric === "arr" ? arr >= th : e.metric === "ttm" ? ttm >= th : true;
+          if (ok) { fired[ei] = k; startedNow.push(e.name); }
+        }
+        if (fired[ei] !== null) exp += expMonthly(e);
+      });
+      const baseSpend = b.team + b.tools + b.bets, spend = baseSpend + exp;
+      spendHist.push(spend);
+      const net = rev + b.fund - spend;
+      bal += net;
+      if (runOut === null && bal < 0) runOut = ms(i);
+      if (bal < low.v) low = { v: bal, m: ms(i) };
+      if (k >= 2) {
+        const r3 = revHist.slice(-3).reduce((a, v) => a + v, 0), s3 = spendHist.slice(-3).reduce((a, v) => a + v, 0);
+        if (r3 < s3) covered = null; else if (covered === null) covered = ms(i);
+      }
+      rows.push({ m: ms(i), subs, oneoff, other: b.rev + b.fund, baseSpend, exp, spend, rev, net, bal, balBase: b.bal, arr, customers, ttm, startedNow });
+    }
+    const targets = P.targets.map((t) => {
+      const val = (r) => (t.metric === "ttm" ? r.ttm : r.arr);
+      const hitRow = rows.find((r) => val(r) >= num(t.amount));
+      const byRow = rows.find((r) => r.m === t.by);
+      return { hit: hitRow ? hitRow.m : null, atBy: byRow ? val(byRow) : null };
+    });
+    return { rows, fired, stats, runOut, low, covered, targets, end: rows[rows.length - 1] };
+  }
+  function targetStatus(t, r) {
+    if (r.hit && mi(r.hit) <= mi(t.by)) return { cls: "good", text: `Reached ${mLong(r.hit)}` };
+    if (r.hit) { const late = mi(r.hit) - mi(t.by); return { cls: "", text: `Reached ${mLong(r.hit)}, ${late} month${late === 1 ? "" : "s"} late` }; }
+    return { cls: "alert", text: r.atBy != null ? `Not reached: ${money(r.atBy)} by ${mLong(t.by)}` : "Not reached in 24 months" };
+  }
+  const triggerText = (e) => e.metric === "arr" ? `when ARR ≥ ${kfmt(num(e.threshold))}` : e.metric === "ttm" ? `when 12-mo revenue ≥ ${kfmt(num(e.threshold))}` : `from ${mShort(e.earliest)}`;
+
+  // ---------- projection outputs ----------
+  function renderProj() {
+    const PR = computeProjection(), P = S.proj, end = PR.end, start = mi(S.startMonth);
+    const onExp = P.expansions.filter((e) => e.on);
+    const firedIdx = P.expansions.map((e, i) => i).filter((i) => P.expansions[i].on && PR.fired[i] !== null);
+    const firedMonthly = firedIdx.reduce((a, i) => a + expMonthly(P.expansions[i]), 0);
+    $("projTiles").innerHTML = `
+      <div class="tile hero">
+        <span class="eyebrow">Cash at end of ${mLong(end.m)}</span>
+        <span class="tile-value">${money(end.bal)}</span>
+        <span class="tile-sub">${PR.runOut ? "Runs out in " + mLong(PR.runOut) : "Lowest " + money(PR.low.v) + " in " + mLong(PR.low.m)}</span>
+      </div>
+      <div class="tile">
+        <span class="eyebrow">ARR at ${mLong(end.m)}</span>
+        <span class="tile-value">${money(end.arr)}</span>
+        <span class="tile-sub">About ${Math.round(end.customers)} recurring customers</span>
+      </div>
+      <div class="tile">
+        <span class="eyebrow">Revenue, last 12 months</span>
+        <span class="tile-value">${money(end.ttm)}</span>
+        <span class="tile-sub">${PR.covered ? "Covers spend from " + mLong(PR.covered) + " onwards (3-month average)" : "Doesn't cover spend by " + mLong(end.m) + " (3-month average)"}</span>
+      </div>
+      <div class="tile">
+        <span class="eyebrow">Expansions triggered</span>
+        <span class="tile-value">${firedIdx.length} of ${onExp.length}</span>
+        <span class="tile-sub">${firedIdx.length ? "Adding " + money(firedMonthly) + "/mo by " + mLong(end.m) : "None start within 24 months"}</span>
+      </div>`;
+
+    // charts
+    const markers = []; PR.rows.forEach((r, k) => r.startedNow.forEach((nm) => markers.push({ k, label: nm })));
+    const tipExtra = (k) => { const r = PR.rows[k]; return r && r.startedNow.length ? `<div class="tip-note">Starts: ${esc(r.startedNow.join(", "))}</div>` : ""; };
+    lineChart("projChart", {
+      tipId: "projTip", boxId: "projChartBox",
+      labels: ["Now (25 Oct 2026)"].concat(PR.rows.map((r) => "End of " + mLong(r.m))),
+      tick: (k) => (k === 0 ? "Now" : k % 3 === 0 ? mShort(ms(start + k - 1)) : ""),
+      series: [
+        { label: "With projections", short: "With", color: "--s-expected", width: 3, values: [num(S.startBalance)].concat(PR.rows.map((r) => r.bal)) },
+        { label: "Without projections", short: "Without", color: "--muted", width: 2, dash: "6 5", values: [num(S.startBalance)].concat(PR.rows.map((r) => r.balBase)) }
+      ],
+      markers: markers.map((m) => ({ k: m.k + 1, label: m.label })),
+      extra: (k) => (k > 0 ? tipExtra(k - 1) + `<div class="tip-note">ARR ${money(PR.rows[k - 1].arr)}</div>` : "")
+    });
+    lineChart("flowChart", {
+      tipId: "flowTip", boxId: "flowChartBox",
+      labels: PR.rows.map((r) => mLong(r.m)),
+      tick: (k) => ((k + 1) % 3 === 0 ? mShort(ms(start + k)) : ""),
+      series: [
+        { label: "Revenue", short: "Revenue", color: "--s-best", width: 2.5, values: PR.rows.map((r) => r.rev) },
+        { label: "Spend", short: "Spend", color: "--s-none", width: 2.5, values: PR.rows.map((r) => r.spend) }
+      ],
+      markers,
+      extra: tipExtra
+    });
+
+    // table
+    $("projRows").innerHTML = PR.rows.map((r) => `
+      <tr class="${r.bal < 0 ? "neg" : ""}">
+        <td>${mLong(r.m)}</td>
+        <td class="r">${r.subs ? money(r.subs) : "–"}</td>
+        <td class="r">${r.oneoff ? money(r.oneoff) : "–"}</td>
+        <td class="r">${r.other ? money(r.other) : "–"}</td>
+        <td class="r">${money(r.baseSpend)}</td>
+        <td class="r"${r.startedNow.length ? ` title="${esc("Starts: " + r.startedNow.join(", "))}" style="font-weight:800"` : ""}>${r.exp ? money(r.exp) : "–"}</td>
+        <td class="r">${signed(r.net)}</td>
+        <td class="r bal">${money(r.bal)}</td>
+        <td class="r">${money(r.arr)}</td>
+      </tr>`).join("");
+
+    // per-row summaries and status
+    const setTxt = (sel, txt) => { const el = document.querySelector(sel); if (el) el.textContent = txt; };
+    P.streams.forEach((s, i) => {
+      const key = "proj.streams-" + i;
+      setTxt(`[data-sum="${key}"]`, s.type === "arr" ? `${money(num(s.acv))} ACV · ${num(s.y1)} → ${num(s.y2)} deals/qtr · from ${mShort(s.start)}` : `${money(num(s.value))} each · ${num(s.y1)} → ${num(s.y2)} deals/qtr · from ${mShort(s.start)}`);
+      setTxt(`[data-derived="${key}"]`, !s.on ? "Switched off" : s.type === "arr" ? `ARR at ${mShort(end.m)}: ${money(PR.stats[i].arr)}` : `${money(PR.stats[i].cash)} over 24 months`);
+      const row = document.querySelector(`[data-row="${key}"]`); if (row) row.classList.toggle("off", !s.on);
+    });
+    P.expansions.forEach((e, i) => {
+      const key = "proj.expansions-" + i;
+      setTxt(`[data-sum="${key}"]`, `${money(num(e.annual))}/yr${e.superOn ? " + super" : ""} · ${triggerText(e)}`);
+      const k = PR.fired[i];
+      setTxt(`[data-derived="${key}"]`, !e.on ? "Switched off" : k !== null ? `Starts ${mLong(ms(start + k))} · +${money(expMonthly(e))}/mo` : `Not triggered by ${mShort(end.m)}`);
+      const warn = document.querySelector(`[data-warn="${key}"]`);
+      if (warn) { const show = e.kind === "raise" && e.current == null; warn.hidden = !show; warn.innerHTML = show ? `<span class="warn-text">No current salary entered, so the full ${esc(money(num(e.annual)))} is counted. Enter it to count only the increase.</span>` : ""; }
+      const row = document.querySelector(`[data-row="${key}"]`); if (row) row.classList.toggle("off", !e.on);
+    });
+    P.targets.forEach((t, i) => {
+      const key = "proj.targets-" + i, stt = targetStatus(t, PR.targets[i]);
+      setTxt(`[data-sum="${key}"]`, `${t.metric === "ttm" ? "12-mo revenue" : "ARR"} ${money(num(t.amount))} by ${mShort(t.by)} · ${stt.text}`);
+      const el = document.querySelector(`[data-derived="${key}"]`); if (el) el.innerHTML = `<span class="chip ${stt.cls}">${esc(stt.text)}</span>`;
+    });
+    for (const btn of document.querySelectorAll("[data-collapse-all]")) btn.textContent = L(btn.dataset.collapseAll).some((it) => it._open) ? "Collapse all" : "Expand all";
+  }
+
+  function setTab(t) {
+    S.tab = t === "projections" ? "projections" : "runway"; save(); renderControls(); renderOutputs();
+    try { if (location.hash !== "#" + S.tab) location.hash = S.tab; } catch (e) {}
   }
 
   // ---------- rendering: outputs ----------
@@ -553,7 +921,7 @@ footer a { color: var(--peri-ink); }
     S.bets.forEach((b, i) => setSum(`bets-${i}`, `${signed(num(b.delta))}/mo · from ${mShort(b.start)} · ${num(b.months) ? num(b.months) + " mo" : "ongoing"}`));
     S.prospects.forEach((p, i) => setSum(`prospects-${i}`, `${money(num(p.value))} · ${num(p.likelihood)}% · from ${mShort(p.start)}`));
     S.funding.forEach((f, i) => setSum(`funding-${i}`, `${money(num(f.amount))} · ${mLong(f.month)}`));
-    for (const btn of document.querySelectorAll("[data-collapse-all]")) btn.textContent = S[btn.dataset.collapseAll].some((it) => it._open) ? "Collapse all" : "Expand all";
+    for (const btn of document.querySelectorAll("[data-collapse-all]")) btn.textContent = L(btn.dataset.collapseAll).some((it) => it._open) ? "Collapse all" : "Expand all";
     const totVal = S.prospects.reduce((a, p) => a + num(p.value), 0);
     const totExp = S.prospects.reduce((a, p) => a + num(p.value) * Math.min(100, Math.max(0, num(p.likelihood))) / 100, 0);
     $("prospectSummary").textContent = `${S.prospects.length} prospect${S.prospects.length === 1 ? "" : "s"} worth ${money(totVal)} if all close, ${money(totExp)} weighted by likelihood. Rename them and set real values and timing.`;
@@ -595,7 +963,10 @@ footer a { color: var(--peri-ink); }
     renderMonthTable(sel, selDef);
     renderCostFoot();
     renderDerived();
-    $("headerMeta").textContent = `Starting cash ${money2(num(S.startBalance))} on 25 Oct 2026. Plan runs ${mLong(S.startMonth)} to ${mLong(endM)}. Your edits save in this browser only.`;
+    renderProj();
+    $("headerMeta").textContent = S.tab === "projections"
+      ? `24-month projection, ${mLong(S.startMonth)} to ${mLong(ms(mi(S.startMonth) + PROJ_N - 1))}, built on the Runway tab's cash, costs, bets and funding. Your edits save in this browser only.`
+      : `Starting cash ${money2(num(S.startBalance))} on 25 Oct 2026. Plan runs ${mLong(S.startMonth)} to ${mLong(endM)}. Your edits save in this browser only.`;
   }
 
   function renderCostFoot() {
@@ -719,15 +1090,92 @@ footer a { color: var(--peri-ink); }
   }
   function hideTip() { $("tip").hidden = true; const l = $("hoverLine"); if (l) l.setAttribute("visibility", "hidden"); }
 
+  // generic line chart used by the projections tab
+  const charts = {};
+  function lineChart(id, cfg) {
+    const svg = $(id), N = cfg.labels.length, pw = W - ML - MR, ph = H - MT - MB;
+    let lo = 0, hi = 0;
+    for (const s of cfg.series) for (const v of s.values) { lo = Math.min(lo, v); hi = Math.max(hi, v); }
+    const step = niceStep(Math.max(1, hi - lo), 5);
+    lo = Math.floor(lo / step) * step; hi = Math.ceil(hi / step) * step; if (hi === lo) hi = lo + step;
+    const x = (k) => ML + (N > 1 ? k / (N - 1) : 0) * pw;
+    const y = (v) => MT + (1 - (v - lo) / (hi - lo)) * ph;
+    const css = getComputedStyle(document.documentElement), col = (t) => css.getPropertyValue(t).trim();
+    let g = "";
+    if (lo < 0) g += `<rect x="${ML}" y="${y(0)}" width="${pw}" height="${y(lo) - y(0)}" fill="${col("--alert-bg")}"></rect>`;
+    for (let v = lo; v <= hi + 1e-6; v += step) {
+      const yy = y(v);
+      g += `<line x1="${ML}" x2="${ML + pw}" y1="${yy}" y2="${yy}" stroke="${col(v === 0 ? "--muted" : "--line")}" stroke-width="${v === 0 ? 1.25 : 1}"></line>`;
+      g += `<text x="${ML - 8}" y="${yy + 4}" text-anchor="end">${kfmt(v)}</text>`;
+    }
+    for (let k = 0; k < N; k++) { const t = cfg.tick(k); if (t) g += `<text x="${x(k)}" y="${H - 10}" text-anchor="middle">${t}</text>`; }
+    const byK = {}; for (const m of cfg.markers || []) (byK[m.k] = byK[m.k] || []).push(m.label);
+    const placed = [[], [], []]; // label rows, each holding [x0, x1] spans
+    for (const kk of Object.keys(byK).map(Number).sort((a, b) => a - b)) {
+      const xx = x(kk), names = byK[kk];
+      let lbl = names.length > 1 ? `${names.length} expansions start` : names[0];
+      if (lbl.length > 28) lbl = lbl.slice(0, 27) + "…";
+      const w = lbl.length * 6.3, right = xx + 5 + w > ML + pw;
+      const x0 = right ? xx - 5 - w : xx + 5, x1 = x0 + w;
+      let row = placed.findIndex((spans) => spans.every(([a, b]) => x1 + 6 < a || x0 > b + 6));
+      if (row < 0) row = placed.length - 1;
+      placed[row].push([x0, x1]);
+      g += `<line x1="${xx}" x2="${xx}" y1="${MT}" y2="${MT + ph}" stroke="${col("--peri-ink")}" stroke-width="1.25" stroke-dasharray="2 3"></line>`;
+      g += `<text class="marker-label" x="${right ? xx - 5 : xx + 5}" y="${MT + 11 + row * 14}" text-anchor="${right ? "end" : "start"}">${esc(lbl)}<title>${esc(names.join(", "))}</title></text>`;
+    }
+    const ends = [];
+    for (const s of cfg.series.slice().reverse()) {
+      const d = s.values.map((v, k) => (k ? "L" : "M") + x(k).toFixed(1) + " " + y(v).toFixed(1)).join(" ");
+      g += `<path d="${d}" fill="none" stroke="${col(s.color)}" stroke-width="${s.width || 2}" stroke-linejoin="round" stroke-linecap="round"${s.dash ? ` stroke-dasharray="${s.dash}"` : ""}></path>`;
+      const lv = s.values[N - 1];
+      g += `<circle cx="${x(N - 1)}" cy="${y(lv)}" r="4.5" fill="${col(s.color)}" stroke="${col("--card")}" stroke-width="2"></circle>`;
+      ends.push({ s, y: y(lv), v: lv });
+    }
+    ends.sort((a, b) => a.y - b.y);
+    for (let i = 1; i < ends.length; i++) if (ends[i].y - ends[i - 1].y < 30) ends[i].y = ends[i - 1].y + 30;
+    const over = ends.length ? ends[ends.length - 1].y - (MT + ph + 4) : 0;
+    if (over > 0) for (const e of ends) e.y -= over;
+    for (const e of ends) {
+      g += `<text class="end-label" x="${ML + pw + 10}" y="${e.y - 2}">${esc(e.s.short)}</text>`;
+      g += `<text x="${ML + pw + 10}" y="${e.y + 12}">${money(e.v)}</text>`;
+    }
+    g += `<line id="${id}-line" x1="0" x2="0" y1="${MT}" y2="${MT + ph}" stroke="${col("--muted")}" stroke-width="1" stroke-dasharray="3 3" visibility="hidden"></line>`;
+    g += `<rect id="${id}-hit" x="${ML - 10}" y="${MT}" width="${pw + 20}" height="${ph}" fill="transparent" style="cursor:crosshair"></rect>`;
+    svg.innerHTML = g;
+    charts[id] = { cfg, x, N, pw };
+    const hit = $(id + "-hit");
+    const move = (ev) => chartHover(id, ev);
+    hit.addEventListener("pointermove", move);
+    hit.addEventListener("pointerdown", move);
+    hit.addEventListener("pointerleave", () => { $(charts[id].cfg.tipId).hidden = true; const l = $(id + "-line"); if (l) l.setAttribute("visibility", "hidden"); });
+  }
+  function chartHover(id, ev) {
+    const c = charts[id]; if (!c) return;
+    const svg = $(id), box = svg.getBoundingClientRect();
+    const sx = ((ev.clientX - box.left) / box.width) * W;
+    let k = Math.round(((sx - ML) / c.pw) * (c.N - 1)); k = Math.max(0, Math.min(c.N - 1, k));
+    const xx = c.x(k), line = $(id + "-line");
+    line.setAttribute("x1", xx); line.setAttribute("x2", xx); line.setAttribute("visibility", "visible");
+    const tip = $(c.cfg.tipId);
+    tip.innerHTML = `<div class="tip-title">${esc(c.cfg.labels[k])}</div>` + c.cfg.series.map((s) => `<div class="tip-row"><span><i class="dot" style="background:var(${s.color})"></i>${esc(s.label)}</span><strong style="color:${s.values[k] < 0 ? "var(--alert)" : "inherit"}">${money(s.values[k])}</strong></div>`).join("") + (c.cfg.extra ? c.cfg.extra(k) : "");
+    tip.hidden = false;
+    const cb = $(c.cfg.boxId).getBoundingClientRect();
+    const px = (xx / W) * box.width + (box.left - cb.left), tw = tip.offsetWidth;
+    let left = px + 14; if (left + tw > cb.width) left = px - tw - 14; if (left < 0) left = 0;
+    tip.style.left = left + "px"; tip.style.top = "8px";
+  }
+
   // ---------- events ----------
   function onEdit(e) {
     const t = e.target;
     if (t.id === "startBalance") { S.startBalance = num(t.value); save(); renderOutputs(); return; }
     if (t.id === "planEnd") { S.endMonth = t.value; save(); renderOutputs(); return; }
+    if (t.id === "projProspects") { S.proj.prospects = t.value; save(); renderOutputs(); return; }
+    if (t.id === "superRate") { S.proj.superRate = num(t.value); save(); renderOutputs(); return; }
     const list = t.dataset.list; if (!list) return;
-    const item = S[list][+t.dataset.idx]; if (!item) return;
+    const item = L(list)[+t.dataset.idx]; if (!item) return;
     const f = t.dataset.field;
-    item[f] = t.type === "checkbox" ? t.checked : t.dataset.type === "num" ? num(t.value) : t.value;
+    item[f] = t.type === "checkbox" ? t.checked : t.dataset.type === "num" ? num(t.value) : t.dataset.type === "numOrBlank" ? (t.value === "" ? null : num(t.value)) : t.value;
     save(); renderOutputs();
   }
   document.addEventListener("input", onEdit);
@@ -737,13 +1185,19 @@ footer a { color: var(--peri-ink); }
     bets: () => ({ on: true, name: "New bet", delta: 0, start: S.startMonth, months: 0, note: "", _open: true }),
     prospects: () => ({ name: "New prospect", value: 10000, likelihood: 50, start: S.startMonth, months: 1, _open: true }),
     funding: () => ({ on: true, name: "New funding", amount: 0, month: S.startMonth, note: "", _open: true }),
-    expenses: () => ({ on: true, name: "New cost", kind: "tools", amount: 0, end: "", note: "" })
+    expenses: () => ({ on: true, name: "New cost", kind: "tools", amount: 0, end: "", note: "" }),
+    "proj.streams": (kind) => kind === "oneoff"
+      ? { on: true, type: "oneoff", name: "New one-off stream", value: 10000, y1: 1, y2: 1, start: S.startMonth, _open: true }
+      : { on: true, type: "arr", name: "New recurring stream", acv: 5500, y1: 1, y2: 2, start: S.startMonth, billing: "annual", renewal: 85, _open: true },
+    "proj.expansions": () => ({ on: true, kind: "hire", name: "New expansion", annual: 100000, current: null, superOn: true, earliest: S.startMonth, metric: "none", threshold: 0, note: "", _open: true }),
+    "proj.targets": () => ({ name: "New target", metric: "arr", amount: 100000, by: "2028-01", _open: true })
   };
   document.addEventListener("click", (e) => {
     const t = e.target.closest("button"); if (!t) return;
+    if (t.dataset.tab) { setTab(t.dataset.tab); return; }
     if (t.dataset.scen) { S.scenario = t.dataset.scen; save(); renderControls(); renderOutputs(); return; }
     if (t.dataset.toggle) {
-      const it = S[t.dataset.toggle][+t.dataset.idx]; if (!it) return;
+      const it = L(t.dataset.toggle)[+t.dataset.idx]; if (!it) return;
       it._open = !it._open; save();
       const row = document.querySelector(`[data-row="${t.dataset.toggle}-${t.dataset.idx}"]`);
       if (row) row.classList.toggle("collapsed", !it._open);
@@ -751,18 +1205,18 @@ footer a { color: var(--peri-ink); }
       renderDerived(); return;
     }
     if (t.dataset.collapseAll) {
-      const list = S[t.dataset.collapseAll], open = !list.some((it) => it._open);
+      const list = L(t.dataset.collapseAll), open = !list.some((it) => it._open);
       list.forEach((it) => { it._open = open; }); save(); renderEditors(); renderDerived(); return;
     }
     if (t.dataset.section) { S.closed = S.closed || {}; S.closed[t.dataset.section] = !S.closed[t.dataset.section]; save(); renderControls(); return; }
     if (t.dataset.add) {
-      const list = t.dataset.add; S[list].push(BLANK[list]()); save(); renderEditors(); renderOutputs();
-      const idx = S[list].length - 1;
+      const list = t.dataset.add; L(list).push(BLANK[list](t.dataset.kind)); save(); renderEditors(); renderOutputs();
+      const idx = L(list).length - 1;
       const inp = document.querySelector(`[data-list="${list}"][data-idx="${idx}"][data-field="name"]`);
       if (inp) { inp.focus(); inp.select(); }
       return;
     }
-    if (t.dataset.remove) { S[t.dataset.remove].splice(+t.dataset.idx, 1); save(); renderEditors(); renderOutputs(); return; }
+    if (t.dataset.remove) { L(t.dataset.remove).splice(+t.dataset.idx, 1); save(); renderEditors(); renderOutputs(); return; }
   });
 
   // ---------- share ----------
@@ -801,6 +1255,17 @@ footer a { color: var(--peri-ink); }
       const r = R[s.key];
       lines.push(`- ${s.label}: ${r.runOut ? "cash runs out in " + mLong(r.runOut) : "cash lasts the plan"}; ${money(r.end.bal)} at end of ${mLong(endM)}; lowest ${money(r.low.v)} in ${mLong(r.low.m)}`);
     }
+    const PR = computeProjection(), pe = PR.end, P = S.proj;
+    const pLabel = { none: "not counted", expected: "expected", best: "all close" }[P.prospects] || P.prospects;
+    lines.push("", `Projection to ${mLong(pe.m)} (runway prospects ${pLabel}):`);
+    lines.push(`- ARR ${money(pe.arr)}; revenue in the last 12 months ${money(pe.ttm)}`);
+    lines.push(`- Cash: ${PR.runOut ? "runs out in " + mLong(PR.runOut) : money(pe.bal) + " at end of " + mLong(pe.m)}; lowest ${money(PR.low.v)} in ${mLong(PR.low.m)}`);
+    lines.push("Revenue streams:");
+    for (const s of P.streams.filter((x) => x.on)) lines.push(`- ${s.name}: ${s.type === "arr" ? money(num(s.acv)) + " ACV" : money(num(s.value)) + " each"}, ${num(s.y1)} then ${num(s.y2)} deals/qtr from ${mLong(s.start)}`);
+    lines.push("Expansions:");
+    P.expansions.forEach((e, i) => { if (e.on) lines.push(`- ${e.name}: ${PR.fired[i] !== null ? "starts " + mLong(ms(mi(S.startMonth) + PR.fired[i])) + ", +" + money(expMonthly(e)) + "/mo" : "not triggered in 24 months"}${e.kind === "raise" && e.current == null ? " (current salary not entered, full amount counted)" : ""}`); });
+    lines.push("Targets:");
+    P.targets.forEach((t, i) => lines.push(`- ${t.name} (${t.metric === "ttm" ? "12-month revenue" : "ARR"} ${money(num(t.amount))} by ${mLong(t.by)}): ${targetStatus(t, PR.targets[i]).text}`));
     return lines.join("\n");
   }
   $("copySummary").addEventListener("click", () => copyText(summaryText(), "Summary copied. Paste it into your sync notes."));
@@ -824,6 +1289,9 @@ footer a { color: var(--peri-ink); }
   try { window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", renderOutputs); } catch (e) {}
   try { new MutationObserver(renderOutputs).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] }); } catch (e) {}
 
+  const fromHash = () => { const h = (location.hash || "").slice(1); return h === "runway" || h === "projections" ? h : null; };
+  if (fromHash()) S.tab = fromHash();
+  window.addEventListener("hashchange", () => { const h = fromHash(); if (h && h !== S.tab) { S.tab = h; save(); renderControls(); renderOutputs(); } });
   renderControls(); renderEditors(); renderOutputs();
 })();
 </script>
