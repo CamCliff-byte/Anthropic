@@ -25,7 +25,7 @@ Prefer:
 - One reading column (about 66 characters) with whitespace for grouping. Use hairline rules only where rows need separating.
 - Hierarchy from type size and weight. Manrope only, body 17–18px, nothing under 14px.
 - At most two or three full-width colour bands, each with a purpose. Keep lime (`#d7dc38`) for actions and ticks; never use lime or periwinkle for text on light backgrounds.
-- Real Capyble assets. The Drive MCP can't return binary files, so pull the logo, illustrated capys and product screens from `capyble.com/wp-content/uploads/`.
+- Real Capyble assets. The Drive MCP can't return binary files, but shared Drive files download directly with `curl -L "https://drive.google.com/uc?export=download&id=<fileId>"` (find IDs with the Drive search tool). The newer sticker-style capys (CaPPE in a hard hat, Surf, Coffee, Reading) are in Drive folder `1coaoHb2Xgo4v7IZGsidfPIP8iKWiG_bF`. The logo, older capys and product screens are also at `capyble.com/wp-content/uploads/`.
 - Real tables and charts for comparisons.
 - Fewer, stronger sections. Cut anything that repeats.
 
